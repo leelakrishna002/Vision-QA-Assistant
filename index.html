@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vision-QA Assistant - Multimodal Chatbot</title>
+<style>
+  /* Reset and base */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+  }
+  h1 {
+    font-weight: 700;
+    font-size: 2.5rem;
+    margin-bottom: 0.25rem;
+    text-align: center;
+    text-shadow: 1px 1px 5px rgba(0,0,0,0.3);
+  }
+  h2 {
+    font-weight: 600;
+    font-size: 1.25rem;
+    margin: 4px 0 1.5rem;
+    opacity: 0.85;
+    text-align: center;
+  }
+
+  .container {
+    max-width: 700px;
+    width: 100%;
+    background: rgba(255 255 255 / 0.1);
+    border-radius: 16px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+    padding: 1.5rem 2rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  label.upload-label {
+    background-color: #8470ff;
+    padding: 1rem 1.4rem;
+    border-radius: 10px;
+    display: inline-block;
+    cursor: pointer;
+    font-weight: 600;
+    text-align: center;
+    transition: background-color 0.3s ease;
+  }
+  label.upload-label:hover {
+    background-color: #5a52d4;
+  }
+  input[type="file"] {
+    display: none;
+  }
+
+  .image-preview {
+    border-radius: 12px;
+    border: 3px solid #7157ffaa;
+    max-height: 300px;
+    object-fit: contain;
+    width: 100%;
+    background: #221a55;
+    display: none;
+    margin-top: 0.8rem;
+  }
+
+  .question-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 60px;
+    max-height: 120px;
+    padding: 0.7rem 1rem;
+    border-radius: 12px;
+    border: none;
+    background: #5d54ff;
+    color: white;
+    font-size: 1rem;
+    outline-offset: 2px;
+    transition: background-color 0.2s ease;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+  textarea:focus {
+    background: #4b44dd;
+  }
+
+  button.ask-btn {
+    background-color: #ffd25a;
+    color: #1f1f1f;
+    border: none;
+    padding: 0.8rem 1.8rem;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: background-color 0.3s ease;
+    align-self: flex-start;
+  }
+  button.ask-btn:disabled {
+    background-color: #aaa;
+    cursor: not-allowed;
+  }
+  button.ask-btn:hover:not(:disabled) {
+    background-color: #e6bc3e;
+  }
+
+  .chat-area {
+    background: #1f1f3f;
+    border-radius: 14px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding: 1rem 1.2rem;
+    box-shadow: inset 0 0 6px #8073ffaa;
+  }
+
+  .message {
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .message.user .message-text {
+    background: #4b44dd;
+    align-self: flex-end;
+    border-radius: 12px 12px 0 12px;
+    padding: 0.6rem 1rem;
+    max-width: 75%;
+    color: #e0e0ff;
+    font-weight: 600;
+  }
+
+  .message.bot .message-text {
+    background: #7157ff;
+    align-self: flex-start;
+    border-radius: 12px 12px 12px 0;
+    padding: 0.6rem 1rem;
+    max-width: 75%;
+    color: #f0f0ff;
+    font-weight: 500;
+    white-space: pre-wrap;
+  }
+
+  .loading {
+    font-style: italic;
+    opacity: 0.8;
+    align-self: flex-start;
+  }
+
+  footer {
+    margin-top: 2rem;
+    font-size: 0.85rem;
+    color: #ccc;
+    text-align: center;
+  }
+  a.footer-link {
+    color: #a09aff;
+    text-decoration: none;
+  }
+  a.footer-link:hover {
+    text-decoration: underline;
+  }
+</style>
+</head>
+<body>
+  <h1>Vision-QA Assistant</h1>
+  <h2>A Multimodal Chatbot for Image Understanding</h2>
+  <div class="container">
+    <label class="upload-label" for="fileInput">📷 Upload an Image</label>
+    <input type="file" id="fileInput" accept="image/*" />
+    <img id="imagePreview" class="image-preview" alt="Uploaded Image Preview" />
+    <div class="question-container">
+      <textarea id="questionInput" placeholder="Ask a question about the image..."></textarea>
+      <button class="ask-btn" id="askBtn" disabled>Ask</button>
+    </div>
+    <div class="chat-area" id="chatArea" aria-live="polite" aria-atomic="true">
+      <!-- Chat messages will appear here -->
+    </div>
+  </div>
+  <footer>
+    Powered by TensorFlow.js MobileNet for demo • Replace with your vision-language model API for full power.
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+  <script>
+    (function(){
+      const fileInput = document.getElementById('fileInput');
+      const imagePreview = document.getElementById('imagePreview');
+      const questionInput = document.getElementById('questionInput');
+      const askBtn = document.getElementById('askBtn');
+      const chatArea = document.getElementById('chatArea');
+
+      let uploadedImage = null;
+      let model = null;
+      let predictions = [];
+
+      // Load the MobileNet model once on page load
+      mobilenet.load().then(loadedModel => {
+        model = loadedModel;
+        console.log('MobileNet model loaded');
+      }).catch(err => {
+        console.error('Failed to load MobileNet model:', err);
+      });
+
+      // Enable 'Ask' only if image and question are provided
+      function updateAskButtonState() {
+        askBtn.disabled = !(uploadedImage && questionInput.value.trim().length > 0);
+      }
+
+      fileInput.addEventListener('change', handleFileChange);
+      questionInput.addEventListener('input', updateAskButtonState);
+      askBtn.addEventListener('click', handleAskClick);
+
+      function handleFileChange(event) {
+        const file = event.target.files[0];
+        if (!file) {
+          reset();
+          return;
+        }
+        const url = URL.createObjectURL(file);
+        imagePreview.src = url;
+        imagePreview.style.display = 'block';
+        uploadedImage = new Image();
+        uploadedImage.crossOrigin = "anonymous"; // for tfjs
+        uploadedImage.src = url;
+        uploadedImage.onload = () => {
+          updateAskButtonState();
+          // Run prediction on the image
+          predictImage(uploadedImage);
+        };
+      }
+
+      async function predictImage(img) {
+        appendBotMessage('Analyzing image...');
+        try {
+          predictions = await model.classify(img);
+          removeLastBotMessage(); // Remove analyzing message
+          appendBotMessage(formatPredictions(predictions));
+        } catch (e) {
+          removeLastBotMessage();
+          appendBotMessage('Sorry, failed to analyze the image.');
+          console.error(e);
+          predictions = [];
+        }
+      }
+
+      function formatPredictions(preds) {
+        if (!preds || preds.length === 0) return 'I could not detect any objects.';
+        let topPreds = preds.slice(0, 3).map(p => `${p.className} (${(p.probability*100).toFixed(1)}%)`);
+        return 'Detected objects: ' + topPreds.join(', ') + '.';
+      }
+
+      function handleAskClick() {
+        const question = questionInput.value.trim();
+        if (!question || !uploadedImage) return;
+        appendUserMessage(question);
+        askBtn.disabled = true;
+
+        // Simulate AI answer generation combining the detected objects with the user question
+        generateAnswer(question).then(answer => {
+          appendBotMessage(answer);
+          askBtn.disabled = false;
+          questionInput.value = '';
+          updateAskButtonState();
+        });
+      }
+
+      // Simulated answer generation combining question with image predictions
+      async function generateAnswer(question) {
+        // Here is where you'd call a real vision-language model API
+        // For demo: analyze question keywords with detected objects and produce a natural-sounding answer
+
+        if (!predictions || predictions.length === 0) {
+          return "I don't see any recognizable objects to answer that question. Please try another image.";
+        }
+
+        const objects = predictions.map(p => p.className.toLowerCase());
+        const lowerQ = question.toLowerCase();
+
+        // Simple keyword-based heuristic to respond
+
+        if(lowerQ.includes('what') || lowerQ.includes('identify') || lowerQ.includes('objects') || lowerQ.includes('things')) {
+          return `In the image, I can see ${objects.slice(0,3).join(', ')}. Does that help?`;
+        }
+        if(lowerQ.includes('color')) {
+          return "The image contains various colors, but mainly dominant shades appear from the objects detected.";
+        }
+        if(lowerQ.includes('trends') || lowerQ.includes('pattern')) {
+          if(objects.includes('chart') || objects.some(o => o.includes('bar')) || objects.some(o => o.includes('line'))) {
+            return "I see a chart with some bars or lines, indicating trends or distributions in the data.";
+          }
+          return "I don't detect any clear trends or patterns visually, but let me know if you want me to describe the objects.";
+        }
+        if(lowerQ.includes('animal') || lowerQ.includes('dog') || lowerQ.includes('cat') || lowerQ.includes('animal') || lowerQ.includes('pet')) {
+          const animals = objects.filter(o => /(dog|cat|bird|horse|animal)/.test(o));
+          if(animals.length > 0) {
+            return `I can see an animal in the image, specifically a ${animals[0]}.`;
+          } else {
+            return "I don't see any animals in the image.";
+          }
+        }
+        if(lowerQ.includes('describe')) {
+          return `The main objects I detect are: ${objects.slice(0,3).join(', ')}. The image seems to depict these items clearly.`;
+        }
+
+        // Default generic answer
+        return `I detect the following main objects: ${objects.slice(0,3).join(', ')}. Could you please clarify your question or ask about these objects?`;
+      }
+
+      // Chat helpers
+      function appendUserMessage(text) {
+        const messageElem = document.createElement('div');
+        messageElem.classList.add('message', 'user');
+        const messageText = document.createElement('div');
+        messageText.classList.add('message-text');
+        messageText.textContent = text;
+        messageElem.appendChild(messageText);
+        chatArea.appendChild(messageElem);
+        chatArea.scrollTop = chatArea.scrollHeight;
+      }
+
+      function appendBotMessage(text) {
+        const messageElem = document.createElement('div');
+        messageElem.classList.add('message', 'bot');
+        const messageText = document.createElement('div');
+        messageText.classList.add('message-text');
+        messageText.textContent = text;
+        messageElem.appendChild(messageText);
+        chatArea.appendChild(messageElem);
+        chatArea.scrollTop = chatArea.scrollHeight;
+      }
+      function removeLastBotMessage(){
+        // Remove last bot message if exists (used to remove "Analyzing image..." placeholder)
+        const messages = chatArea.querySelectorAll('.message.bot');
+        if(messages.length > 0){
+          chatArea.removeChild(messages[messages.length - 1]);
+        }
+      }
+
+      function reset() {
+        imagePreview.style.display = 'none';
+        imagePreview.src = '';
+        uploadedImage = null;
+        predictions = [];
+        askBtn.disabled = true;
+        chatArea.innerHTML = '';
+        questionInput.value = '';
+      }
+
+    })();
+  </script>
+</body>
+</html>
+
